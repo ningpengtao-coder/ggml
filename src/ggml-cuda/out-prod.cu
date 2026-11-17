@@ -1,4 +1,5 @@
 #include "out-prod.cuh"
+#include "mul-mat-nocublas.cuh"
 
 #include <cstdint>
 
@@ -27,6 +28,45 @@ void ggml_cuda_out_prod(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
     float       *  dst_d = (float       *)  dst->data;
 
     cudaStream_t   stream = ctx.stream();
+#ifdef GGML_CUDA_NO_CUBLAS
+    const int64_t lda = nb01 / sizeof(float);
+    const int64_t ldc = nb1  / sizeof(float);
+
+    const bool src1_T = ggml_is_transposed(src1);
+    const int64_t ldb = (src1_T ? nb10 : nb11) / sizeof(float);
+    GGML_ASSERT((src1_T ? nb11 : nb10) == sizeof(float));
+
+    const int64_t a_m = nb00 / sizeof(float);
+    const int64_t a_k = nb01 / sizeof(float);
+    const int64_t b_n = nb10 / sizeof(float);
+    const int64_t b_k = nb11 / sizeof(float);
+    const int64_t c_m = nb0  / sizeof(float);
+    const int64_t c_n = nb1  / sizeof(float);
+    GGML_UNUSED_VARS(lda, ldc, ldb);
+
+    const size_t s02 = nb02 / sizeof(float);
+    const size_t s03 = nb03 / sizeof(float);
+    const size_t s12 = nb12 / sizeof(float);
+    const size_t s13 = nb13 / sizeof(float);
+    const size_t s2  = nb2  / sizeof(float);
+    const size_t s3  = nb3  / sizeof(float);
+
+    const int64_t dps2 = ne2 / ne02;
+    const int64_t dps3 = ne3 / ne03;
+
+    for (int64_t i3 = 0; i3 < ne3; ++i3) {
+        for (int64_t i2 = 0; i2 < ne2; ++i2) {
+            const float * a = src0_d + (i3/dps3)*s03 + (i2/dps2)*s02;
+            const float * b = src1_d +  i3     *s13 +  i2     *s12;
+            float       * c = dst_d  +  i3     *s3  +  i2     *s2;
+            ggml_cuda_mul_mat_slice_nocublas(
+                a, GGML_TYPE_F32, a_m, a_k,
+                b, GGML_TYPE_F32, b_n, b_k,
+                c, GGML_TYPE_F32, c_m, c_n,
+                ne0, ne1, ne01, false, stream);
+        }
+    }
+#else
     cublasHandle_t handle = ctx.cublas_handle();
 
     const float alpha = 1.0f;
@@ -81,4 +121,5 @@ void ggml_cuda_out_prod(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
             }
         }
     }
+#endif
 }

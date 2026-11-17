@@ -48,7 +48,12 @@ static void ggml_cuda_flash_attn_ext_mma_f16_switch_ncols2(ggml_backend_cuda_con
 
     // Edge cases like no mask, ALiBi, unpadded K/V, or misaligned addresses for large data transfers
     //     are put into the template specialization without GQA optimizations.
-    bool use_gqa_opt = mask && max_bias == 0.0f && K->ne[1] % FATTN_KQ_STRIDE == 0;
+    // MINITTS_FLASH_PER_HEAD_MASK:
+    // Keep the existing grouped-query fast paths only for masks that are shared
+    // across heads. A dense per-head additive bias needs the one-head kernels so
+    // each query head reads its own mask slice.
+    const bool per_head_mask = mask && mask->ne[2] != 1;
+    bool use_gqa_opt = mask && !per_head_mask && max_bias == 0.0f && K->ne[1] % FATTN_KQ_STRIDE == 0;
     for (const ggml_tensor * t : {Q, K, V, mask}) {
         if (t == nullptr || ggml_is_quantized(t->type)) {
             continue;
@@ -357,7 +362,12 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
 
     // The effective batch size for the kernel can be increased by gqa_ratio.
     // The kernel versions without this optimization are also used for ALiBi, if there is no mask, or if the KV cache is not padded,
-    bool gqa_opt_applies = gqa_ratio >= 2 && mask && max_bias == 0.0f && K->ne[1] % FATTN_KQ_STRIDE == 0;
+    // MINITTS_FLASH_PER_HEAD_MASK:
+    // The tile path follows the same rule as the MMA path above: once the mask
+    // carries per-head bias values, shared-mask GQA shortcuts are no longer
+    // valid.
+    const bool per_head_mask = mask && mask->ne[2] != 1;
+    bool gqa_opt_applies = gqa_ratio >= 2 && mask && !per_head_mask && max_bias == 0.0f && K->ne[1] % FATTN_KQ_STRIDE == 0;
     for (const ggml_tensor * t : {Q, K, V, mask}) {
         if (t == nullptr || ggml_is_quantized(t->type)) {
             continue;
@@ -443,10 +453,6 @@ static best_fattn_kernel ggml_cuda_get_best_fattn_kernel(const int device, const
             break;
         default:
             return BEST_FATTN_KERNEL_NONE;
-    }
-
-    if (mask && mask->ne[2] != 1) {
-        return BEST_FATTN_KERNEL_NONE;
     }
 
     // For small batch sizes the vector kernel may be preferable over the kernels optimized for large batch sizes:
@@ -560,3 +566,28 @@ void ggml_cuda_flash_attn_ext(ggml_backend_cuda_context & ctx, ggml_tensor * dst
 bool ggml_cuda_flash_attn_ext_supported(int device, const ggml_tensor * dst) {
     return ggml_cuda_get_best_fattn_kernel(device, dst) != BEST_FATTN_KERNEL_NONE;
 }
+
+#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
+bool ggml_cuda_flash_attn_f16_head40_supported(int device, const ggml_tensor * dst) {
+    const ggml_tensor * q = dst->src[0];
+    const ggml_tensor * k = dst->src[1];
+    const ggml_tensor * v = dst->src[2];
+    return GGML_CUDA_CC_IS_NVIDIA(ggml_cuda_info().devices[device].cc) &&
+        turing_mma_available(ggml_cuda_info().devices[device].cc) &&
+        dst->type == GGML_TYPE_F16 && q->type == GGML_TYPE_F16 &&
+        k->type == GGML_TYPE_F16 && v->type == GGML_TYPE_F16 &&
+        q->ne[0] == 40 && k->ne[0] == 40 && v->ne[0] == 40 &&
+        dst->src[3] == nullptr;
+}
+
+void ggml_cuda_flash_attn_f16_head40(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+    ggml_cuda_set_device(ctx.device);
+    GGML_ASSERT(ggml_cuda_flash_attn_f16_head40_supported(ctx.device, dst));
+    ggml_cuda_flash_attn_f16_head40_mma<128>(ctx, dst);
+}
+#else
+bool ggml_cuda_flash_attn_f16_head40_supported(int, const ggml_tensor *) { return false; }
+void ggml_cuda_flash_attn_f16_head40(ggml_backend_cuda_context &, ggml_tensor *) {
+    GGML_ABORT("FP16 head-40 attention is supported only on NVIDIA CUDA");
+}
+#endif

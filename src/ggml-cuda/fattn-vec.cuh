@@ -101,7 +101,11 @@ static __global__ void flash_attn_ext_vec(
     K += nb13*sequence + nb12*(head / gqa_ratio);
     V += nb23*sequence + nb22*(head / gqa_ratio);
 
-    const half * maskh  = (const half  *) (mask + nb33*(sequence % ne33) + nb31*ic0);
+    // MINITTS_FLASH_PER_HEAD_MASK:
+    // ne32 may be 1 for the historical shared mask, or n_head for a dense
+    // per-head additive bias. Match the CPU broadcast rule by wrapping the
+    // query head index through ne32.
+    const half * maskh  = (const half  *) (mask + nb33*(sequence % ne33) + nb32*(head % ne32) + nb31*ic0);
 
     const float slope = get_alibi_slope(max_bias, head, n_head_log2, m0, m1);
 

@@ -111,6 +111,21 @@ if (CUDAToolkit_FOUND)
     file(GLOB   SRCS "template-instances/mmf*.cu")
     list(APPEND GGML_SOURCES_CUDA ${SRCS})
 
+    set(GGML_CUDA_SAGE_ATTN2_ENABLED ON)
+    foreach(ARCH IN LISTS CMAKE_CUDA_ARCHITECTURES)
+        string(REGEX MATCH "^[0-9]+" ARCH_NUMBER "${ARCH}")
+        if (ARCH_NUMBER STREQUAL "" OR ARCH_NUMBER LESS 89)
+            set(GGML_CUDA_SAGE_ATTN2_ENABLED OFF)
+        endif()
+    endforeach()
+
+    if (NOT GGML_CUDA_SAGE_ATTN2_ENABLED)
+        list(REMOVE_ITEM GGML_SOURCES_CUDA
+            "${CMAKE_CURRENT_SOURCE_DIR}/sage-attn2.cu"
+            "sage-attn2.cu")
+        message(STATUS "CUDA SageAttention2 disabled for CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}")
+    endif()
+
     if (GGML_CUDA_FA_ALL_QUANTS)
         file(GLOB   SRCS "template-instances/fattn-vec*.cu")
         list(APPEND GGML_SOURCES_CUDA ${SRCS})
@@ -127,6 +142,26 @@ if (CUDAToolkit_FOUND)
                              ${GGML_HEADERS_CUDA}
                              ${GGML_SOURCES_CUDA}
                             )
+
+    if (GGML_CUDA_CUDNN_CONV2D OR GGML_CUDA_CUDNN_CONV3D)
+        find_path(CUDNN_INCLUDE_DIR cudnn.h HINTS ${CUDNN_ROOT} PATH_SUFFIXES include)
+        find_library(CUDNN_LIBRARY NAMES cudnn HINTS ${CUDNN_ROOT} PATH_SUFFIXES lib lib64)
+        if (NOT CUDNN_INCLUDE_DIR OR NOT CUDNN_LIBRARY)
+            message(FATAL_ERROR "cuDNN convolution lowering requires cuDNN; set CUDNN_ROOT")
+        endif()
+        target_include_directories(ggml-cuda PRIVATE ${CUDNN_INCLUDE_DIR})
+        target_link_libraries(ggml-cuda PRIVATE ${CUDNN_LIBRARY})
+    endif()
+    if (GGML_CUDA_CUDNN_CONV2D)
+        target_compile_definitions(ggml-cuda PRIVATE GGML_CUDA_CUDNN_CONV2D=1)
+    endif()
+    if (GGML_CUDA_CUDNN_CONV3D)
+        target_compile_definitions(ggml-cuda PRIVATE GGML_CUDA_CUDNN_CONV3D=1)
+    endif()
+
+    if (GGML_CUDA_SAGE_ATTN2_ENABLED)
+        target_compile_definitions(ggml-cuda PRIVATE GGML_CUDA_SAGE_ATTN2_ENABLED)
+    endif()
 
     add_compile_definitions(GGML_CUDA_PEER_MAX_BATCH_SIZE=${GGML_CUDA_PEER_MAX_BATCH_SIZE})
 
@@ -154,7 +189,11 @@ if (CUDAToolkit_FOUND)
         add_compile_definitions(GGML_CUDA_NO_PEER_COPY)
     endif()
 
-    if (GGML_STATIC)
+    if (GGML_CUDA_NO_CUBLAS)
+        # 自研 GEMM 内核替代 cuBLAS；cudart 也静态链接，产物不依赖任何 CUDA DLL。
+        target_compile_definitions(ggml-cuda PUBLIC GGML_CUDA_NO_CUBLAS)
+        target_link_libraries(ggml-cuda PRIVATE CUDA::cudart_static)
+    elseif (GGML_STATIC)
         if (WIN32)
             # As of 12.3.1 CUDA Toolkit for Windows does not offer a static cublas library
             target_link_libraries(ggml-cuda PRIVATE CUDA::cudart_static CUDA::cublas)

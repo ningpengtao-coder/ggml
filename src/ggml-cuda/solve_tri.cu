@@ -42,6 +42,7 @@ static void solve_tri_f32_cublas(ggml_backend_cuda_context & ctx,
                                  size_t                      s2,
                                  size_t                      s3,
                                  cudaStream_t                stream) {
+#ifndef GGML_CUDA_NO_CUBLAS
     const float   alpha         = 1.0f;
     const int64_t total_batches = ne02 * ne03;
     if (total_batches == 0) {
@@ -76,6 +77,11 @@ static void solve_tri_f32_cublas(ggml_backend_cuda_context & ctx,
     CUBLAS_CHECK(cublasSetMathMode(ctx.cublas_handle(id), CUBLAS_TF32_TENSOR_OP_MATH));
 
     GGML_UNUSED_VARS(s12, s13);
+#else
+    // 无 cuBLAS 构建里该 op 不会被调度到 GPU（supports_op 返回 false）。
+    GGML_UNUSED_VARS(ctx, A, B, X, n, k, ne02, ne03, s02, s03, s12, s13, s2, s3, stream);
+    GGML_ABORT("solve_tri requires cuBLAS; the CPU backend must handle GGML_OP_SOLVE_TRI");
+#endif
 }
 
 // ======================

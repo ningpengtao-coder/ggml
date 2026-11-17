@@ -845,6 +845,7 @@ static struct ggml_backend_meta_split_state ggml_backend_meta_get_split_state(co
                 split_state = handle_per_row(src_ss);
             } break;
             case GGML_OP_MUL_MAT:
+            case GGML_OP_MUL_MAT_PACK4:
             case GGML_OP_MUL_MAT_ID: {
                 split_state = handle_mul_mat(src_ss);
             } break;
@@ -902,8 +903,10 @@ static struct ggml_backend_meta_split_state ggml_backend_meta_get_split_state(co
             } break;
             case GGML_OP_CONV_TRANSPOSE_1D:
             case GGML_OP_IM2COL:
+            case GGML_OP_IM2COL_FAST_1D:
             case GGML_OP_IM2COL_BACK:
             case GGML_OP_IM2COL_3D:
+            case GGML_OP_COL2IM_1D:
             case GGML_OP_CONV_2D:
             case GGML_OP_CONV_3D:
             case GGML_OP_CONV_2D_DW:

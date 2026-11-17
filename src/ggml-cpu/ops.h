@@ -66,6 +66,7 @@ void ggml_compute_forward_rope_back(const struct ggml_compute_params * params, s
 void ggml_compute_forward_clamp(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_conv_transpose_1d(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_im2col(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_im2col_fast_1d(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_im2col_back_f32(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_im2col_3d(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_conv_2d(const struct ggml_compute_params * params, struct ggml_tensor * dst);
@@ -93,6 +94,8 @@ void ggml_compute_forward_flash_attn_back(
         struct ggml_tensor * dst);
 void ggml_compute_forward_ssm_conv(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_ssm_scan(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_ssm_conv_causal_silu(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_ssm_scan_mamba1(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_win_part(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_win_unpart(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_unary(const struct ggml_compute_params * params, struct ggml_tensor * dst);
@@ -114,6 +117,14 @@ void ggml_compute_forward_opt_step_adamw(const struct ggml_compute_params * para
 void ggml_compute_forward_mul_mat(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_fwht(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 void ggml_compute_forward_opt_step_sgd(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+
+// VibeASR CPU INT8 pipeline
+void ggml_compute_forward_add_scaled(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_rms_norm_scaled(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_mul_mat_add(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_mul_mat_add_relu(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_mul_mat_i2_s(const struct ggml_compute_params * params, struct ggml_tensor * dst);
+void ggml_compute_forward_im2col_asym(const struct ggml_compute_params * params, struct ggml_tensor * dst);
 #ifdef __cplusplus
 }
 #endif
