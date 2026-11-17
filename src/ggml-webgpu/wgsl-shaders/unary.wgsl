@@ -31,6 +31,13 @@ struct Params {
     ne0: u32,
     ne1: u32,
     ne2: u32,
+#ifdef DIAG_MASK_INF
+    n_past: u32,
+    mask_bits: u32,
+#endif
+#ifdef LEAKY_RELU
+    negative_slope: f32,
+#endif
 #ifdef CLAMP
     clamp_min: f32,
     clamp_max: f32,
@@ -91,6 +98,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     let src_idx = i0 * params.stride_src0 + i1 * params.stride_src1 + i2 * params.stride_src2 + i3 * params.stride_src3;
 
+#ifdef ROUND_BF16
+    // Match GGML_FP32_TO_BF16: ties-to-even, with NaNs forced quiet.
+    let bits = bitcast<u32>(src[params.offset_src + src_idx]);
+    let rounded = (bits + 0x7fffu + ((bits >> 16u) & 1u)) & 0xffff0000u;
+    let quiet_nan = (bits & 0xffff0000u) | 0x00400000u;
+    let res = bitcast<f32>(select(rounded, quiet_nan, (bits & 0x7fffffffu) > 0x7f800000u));
+#endif
 #ifdef ABS
     let res = abs(src[params.offset_src + src_idx]);
 #endif
@@ -105,6 +119,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 #endif
 #ifdef TANH
     let res = tanh(clamp(src[params.offset_src + src_idx], -9.010913, 9.010913));
+#endif
+#ifdef DIAG_MASK_INF
+    let res = select(src[params.offset_src + src_idx], bitcast<f32>(params.mask_bits), i0 > params.n_past + i1);
+#endif
+#ifdef LEAKY_RELU
+    let x = f32(src[params.offset_src + src_idx]);
+    let res = TYPE(select(0.0, x, x > 0.0) + params.negative_slope * select(0.0, x, x < 0.0));
 #endif
 #ifdef RELU
     let res = select(0.0, src[params.offset_src + src_idx], src[params.offset_src + src_idx] > 0.0);

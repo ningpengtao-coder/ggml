@@ -15,6 +15,8 @@
 
 #include "common.hpp"
 
+#define SYCL_ROPE_BLOCK_SIZE 256
+
 void ggml_sycl_rope(ggml_backend_sycl_context & ctx, ggml_tensor *dst);
 
 void ggml_sycl_rope_back(ggml_backend_sycl_context & ctx, ggml_tensor * dst);

@@ -63,7 +63,7 @@ const TOTAL_WORKGROUP_SIZE = WORKGROUP_SIZE_M * WORKGROUP_SIZE_N;
 const TILE_SRC0_SHMEM = TILE_K * WORKGROUP_SIZE_M * TILE_M;
 const TILE_SRC1_SHMEM = TILE_K * WORKGROUP_SIZE_N * TILE_N;
 
-var<workgroup> shmem: array<f16, TILE_SRC0_SHMEM + TILE_SRC1_SHMEM>;
+var<workgroup> shmem: array<STAGING_TYPE, TILE_SRC0_SHMEM + TILE_SRC1_SHMEM>;
 
 @compute @workgroup_size(TOTAL_WORKGROUP_SIZE)
 fn main(@builtin(workgroup_id) wg_id: vec3<u32>,
@@ -123,7 +123,7 @@ fn main(@builtin(workgroup_id) wg_id: vec3<u32>,
         let k_end = min(TILE_K, params.k - k_outer);
 
         for (var k_inner = 0u; k_inner < k_end; k_inner++) {
-            var src0_tile: array<f16, TILE_M>;
+            var src0_tile: array<STAGING_TYPE, TILE_M>;
             for (var tm = 0u; tm < TILE_M; tm++) {
                 let src0_m = local_m * TILE_M + tm;
                 let src0_idx = k_inner + src0_m * TILE_K;

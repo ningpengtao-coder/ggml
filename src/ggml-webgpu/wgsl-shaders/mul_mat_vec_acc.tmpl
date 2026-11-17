@@ -56,7 +56,12 @@ fn accumulate_vec_dot(thread_id: u32, row_base: u32, src0_batch_offset: u32, src
     for (var k = thread_id; k < k_vec; k += WG_SIZE) {
         var x_vals: array<SRC1_TYPE, NUM_COLS>;
         for (var col = 0u;col < NUM_COLS;col += 1) {
+#ifdef SRC1_BF16
+            let index = src1_idx_base_vec + col * params.stride_11 + k;
+            x_vals[col] = bf16_word_to_f32(SRC1[index / 2u], index & 1u);
+#else
             x_vals[col] = SRC1[src1_idx_base_vec + col * (params.stride_11 / VEC_SIZE) + k];
+#endif
         }
         for (var row = 0u; row < OUTPUTS_PER_WG; row++) {
             let output_row = row_base + row;

@@ -11,32 +11,40 @@ static  __global__ void conv_transpose_1d_kernel(
         return;
     }
 
-    int out_t = global_index % dst_ne0;
-    int out_ch = (global_index / dst_ne0) % dst_ne1;
-    int plane = global_index / (dst_ne0 * dst_ne1);
+    int out_index = global_index / dst_ne0;
 
     float accumulator = 0;
+    const int idx = global_index % dst_ne0;
+
+    // A contributing tap must satisfy k == idx (mod stride). Establish the
+    // ascending valid tap range once per output, rather than checking/dividing
+    // every tap again for every input channel. Preserve the original FMA order.
+    int first_k = idx % s0;
+    int first_i = idx / s0;
+    if (first_i >= src1_ne0) {
+        const int skip = first_i - src1_ne0 + 1;
+        first_k += skip * s0;
+        first_i -= skip;
+    }
+    const int k_limit = min(src0_ne0, idx + 1);
+    const int n_taps = first_k < k_limit ? 1 + (k_limit - 1 - first_k) / s0 : 0;
 
     for (int c = 0; c < src0_ne2; c++) {
-        int kernel_offset = src0_ne0 * (out_ch + src0_ne1 * c);
-        int input_offset = src1_ne0 * (c + src1_ne1 * plane);
+        int kernel_offset = (src0_ne0 * src0_ne1 * c) + (out_index * src0_ne0);
+        int input_offset = src1_ne0 * c;
 
-        for (int k = 0; k < src0_ne0; k++) {
-            int input_numer = out_t + p0 - k*d0;
-            if (input_numer < 0 || input_numer % s0 != 0) {
-                continue;
-            }
+        for (int tap = 0; tap < n_taps; tap++) {
+            const int k = first_k + tap * s0;
+            const int i = first_i - tap;
 
-            int input_t = input_numer / s0;
-            if (input_t >= src1_ne0) {
-                continue;
-            }
+            float kernel_weight = src0[kernel_offset + k];
+            float input_value =  src1[input_offset+i];
 
-            accumulator += src0[kernel_offset + k] * src1[input_offset + input_t];
+            accumulator += kernel_weight * input_value;
         }
     }
     dst[global_index] = accumulator;
-    GGML_UNUSED_VARS(src0_ne3, src1_ne2, src1_ne3, dst_ne2, dst_ne3);
+    GGML_UNUSED_VARS(p0, d0, src0_ne3, src1_ne3, dst_ne3, src1_ne1, dst_ne1, src1_ne2, dst_ne2);
 }
 
 static void conv_transpose_1d_f32_f32_cuda(

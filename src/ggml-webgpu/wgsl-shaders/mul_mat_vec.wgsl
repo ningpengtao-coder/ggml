@@ -49,7 +49,11 @@ struct MulMatParams {
 #define DST_BINDING 1
 #else
 @group(0) @binding(0) var<storage, read_write> src0: array<SRC0_TYPE>;
+#ifdef SRC1_BF16
+@group(0) @binding(1) var<storage, read_write> src1: array<u32>;
+#else
 @group(0) @binding(1) var<storage, read_write> src1: array<SRC1_TYPE>;
+#endif
 #define DST_BINDING 2
 #endif
 

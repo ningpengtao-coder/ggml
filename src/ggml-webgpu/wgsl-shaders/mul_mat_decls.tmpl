@@ -1,3 +1,7 @@
+#ifndef STAGING_TYPE
+#define STAGING_TYPE f16
+#endif
+
 #ifndef SRC0
 #define SRC0 src0
 #endif
@@ -7,12 +11,12 @@
 
 #ifdef VEC
 #define VEC_SIZE 4
-#define SHMEM_TYPE vec4<f16>
+#define SHMEM_TYPE vec4<STAGING_TYPE>
 #define DST_TYPE vec4<f32>
 #define SRC0_TYPE vec4<SRC0_INNER_TYPE>
 #define SRC1_TYPE vec4<SRC1_INNER_TYPE>
 
-fn store_shmem(val: vec4<f16>, idx: u32) {
+fn store_shmem(val: vec4<STAGING_TYPE>, idx: u32) {
     shmem[idx] = val.x;
     shmem[idx + 1] = val.y;
     shmem[idx + 2] = val.z;
@@ -22,18 +26,18 @@ fn store_shmem(val: vec4<f16>, idx: u32) {
 
 #ifdef SCALAR
 #define VEC_SIZE 1
-#define SHMEM_TYPE f16
+#define SHMEM_TYPE STAGING_TYPE
 #define DST_TYPE f32
 #define SRC0_TYPE SRC0_INNER_TYPE
 #define SRC1_TYPE SRC1_INNER_TYPE
 
-fn store_shmem(val: f16, idx: u32) {
+fn store_shmem(val: STAGING_TYPE, idx: u32) {
     shmem[idx] = val;
 }
 #endif // SCALAR
 
 #define QUANT_SHMEM shmem
-#define QUANT_OUT_TYPE f16
+#define QUANT_OUT_TYPE STAGING_TYPE
 #include "quant_inner_loops.tmpl"
 
 #ifdef INIT_SRC0_SHMEM_FLOAT
