@@ -13874,7 +13874,7 @@ static ggml_backend_buffer_t ggml_backend_vk_host_buffer_type_alloc_buffer(ggml_
         return ggml_backend_buft_alloc_buffer(ggml_backend_cpu_buffer_type(), size);
     }
 
-    const auto free_host = [](void * data) { ggml_vk_host_free(vk_instance.devices[0], data); };
+    const auto free_host = [](void * data) { ggml_vk_host_free(data); };
     std::unique_ptr<void, decltype(free_host)> allocation(ptr, free_host);
     ggml_backend_buffer_t buffer = ggml_backend_cpu_buffer_from_ptr(allocation.get(), size);
     buffer->buft = buft;
