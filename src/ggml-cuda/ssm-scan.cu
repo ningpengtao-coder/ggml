@@ -328,55 +328,55 @@ static void ssm_scan_f32_cuda(const float * src0, const float * src1, const floa
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 1>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 2:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 2>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 3:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 3>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 4:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 4>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 5:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 5>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 6:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 6>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 7:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 7>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             case 8:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 8>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             default:
                 ggml_cuda_kernel_launch(ssm_scan_f32<threads, 16, 0>, launch_params,
                     src0, src1, src2, src3, src4, src5, src6, dst,
                 src0_nb2, src0_nb3, src1_nb2, src1_nb3, src2_nb1, src2_nb2,
-                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok);
+                src3_nb1, src4_nb2, src4_nb3, src5_nb2, src5_nb3, s_off, n_head, n_tok, nullptr, nullptr, 0, 0);
                 break;
             }
         } else {

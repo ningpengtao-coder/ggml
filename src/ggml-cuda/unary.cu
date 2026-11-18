@@ -136,27 +136,6 @@ static __global__ void unary_op_kernel(const T * x, T * dst, const int k) {
     dst[i] = ggml_cuda_cast<T>(op(ggml_cuda_cast<float>(x[i])));
 }
 
-// Variant for a src with contiguous rows but arbitrary row strides; dst must be contiguous.
-template <float (*op)(float), typename T>
-static __global__ void unary_op_kernel_strided(
-    const char * cx, T * dst, const int64_t k,
-    const int64_t ne0, const int64_t ne1, const int64_t ne2,
-    const int64_t nb01, const int64_t nb02, const int64_t nb03) {
-    const int64_t i = (int64_t)blockDim.x*blockIdx.x + threadIdx.x;
-
-    if (i >= k) {
-        return;
-    }
-
-    const int64_t i0 = i % ne0;
-    const int64_t i1 = (i / ne0) % ne1;
-    const int64_t i2 = (i / (ne0*ne1)) % ne2;
-    const int64_t i3 = i / (ne0*ne1*ne2);
-
-    const T * x = (const T *) (cx + i1*nb01 + i2*nb02 + i3*nb03);
-    dst[i] = (T)op((float)x[i0]);
-}
-
 // round-to-bf16 kernels: any of f32/f16/bf16 in, always f32 out.
 template <typename T>
 static __global__ void round_bf16_kernel(const T * x, float * dst, const int64_t k) {
