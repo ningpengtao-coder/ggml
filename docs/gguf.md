@@ -41,10 +41,10 @@ The components are:
     - This can be derived from gguf metadata `general.version`
 1. **Encoding**: Indicates the weights encoding scheme that was applied to the model. Content, type mixture and arrangement however are determined by user code and can vary depending on project needs.
 1. **Type**: Indicates the kind of gguf file and the intended purpose for it
-  - If missing, then file is by default a typical gguf tensor model file
-  - `LoRA` : GGUF file is a LoRA adapter
-  - `vocab` : GGUF file with only vocab data and metadata
-  - `MTP` : GGUF file contains Multi-Token Prediction heads (a speculative-decoding draft module), intended to be loaded alongside a base model of matching architecture and version
+    - If missing, then file is by default a typical gguf tensor model file
+    - `LoRA` : GGUF file is a LoRA adapter
+    - `vocab` : GGUF file with only vocab data and metadata
+    - `MTP` : GGUF file contains Multi-Token Prediction heads (a speculative-decoding draft module), intended to be loaded alongside a base model of matching architecture and version
 1. **Shard**: (Optional) Indicates and denotes that the model has been split into multiple shards, formatted as `<ShardNum>-of-<ShardTotal>`.
     - *ShardNum* : Shard position in this model. Must be 5 digits padded by zeros.
       - Shard number always starts from `00001` onwards (e.g. First shard always starts at `00001-of-XXXXX` rather than `00000-of-XXXXX`).
@@ -139,6 +139,8 @@ Fields, including arrays, are written sequentially without alignment unless othe
 
 Models are little-endian by default. They can also come in big-endian for use with big-endian computers; in this case, all values (including metadata values and tensors) will also be big-endian. At the time of writing, there is no way to determine if a model is big-endian; this may be rectified in future versions. If no additional information is provided, assume the model is little-endian.
 
+The `ggml_type` values below mirror `enum ggml_type` in [`include/ggml.h`](../include/ggml.h), which is authoritative and gains new values over time, so readers should take type codes and block sizes from there.
+
 ```c
 enum ggml_type: uint32_t {
     GGML_TYPE_F32     = 0,
@@ -181,7 +183,11 @@ enum ggml_type: uint32_t {
     // GGML_TYPE_IQ4_NL_4_8 = 37,
     // GGML_TYPE_IQ4_NL_8_8 = 38,
     GGML_TYPE_MXFP4   = 39, // MXFP4 (1 block)
-    GGML_TYPE_COUNT   = 40,
+    GGML_TYPE_NVFP4   = 40, // NVFP4 (4 blocks, E4M3 scale)
+    GGML_TYPE_Q1_0    = 41,
+    GGML_TYPE_Q2_0    = 42,
+    GGML_TYPE_F8_E4M3 = 43,
+    GGML_TYPE_COUNT   = 44,
 };
 
 enum gguf_metadata_value_type: uint32_t {

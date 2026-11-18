@@ -49,6 +49,13 @@ struct MulMatParams {
 #define DST_BINDING 1
 #else
 @group(0) @binding(0) var<storage, read_write> src0: array<SRC0_TYPE>;
+@group(0) @binding(1) var<storage, read_write> src1q: array<q8_1>;
+#define DST_BINDING 2
+#elif defined(SRC_OVERLAP)
+@group(0) @binding(0) var<storage, read_write> merged_src: array<SRC0_TYPE>;
+#define DST_BINDING 1
+#else
+@group(0) @binding(0) var<storage, read_write> src0: array<SRC0_TYPE>;
 #ifdef SRC1_BF16
 @group(0) @binding(1) var<storage, read_write> src1: array<u32>;
 #else

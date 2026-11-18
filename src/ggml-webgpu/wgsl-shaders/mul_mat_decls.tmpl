@@ -37,7 +37,7 @@ fn store_shmem(val: STAGING_TYPE, idx: u32) {
 #endif // SCALAR
 
 #define QUANT_SHMEM shmem
-#define QUANT_OUT_TYPE STAGING_TYPE
+#define QUANT_OUT_TYPE f16
 #include "quant_inner_loops.tmpl"
 
 #ifdef INIT_SRC0_SHMEM_FLOAT
