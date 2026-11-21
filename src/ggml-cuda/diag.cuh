@@ -3,3 +3,4 @@
 #define CUDA_DIAG_BLOCK_SIZE 256
 
 void ggml_cuda_op_diag(ggml_backend_cuda_context & ctx, ggml_tensor * dst);
+void ggml_cuda_op_diag_mask_inf(ggml_backend_cuda_context & ctx, ggml_tensor * dst);

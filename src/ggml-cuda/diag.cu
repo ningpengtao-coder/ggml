@@ -33,6 +33,44 @@ static __global__ void diag_kernel(T * __restrict__ dst,
     GGML_UNUSED_VARS(ne3);
 }
 
+// Causal mask: element (i0, i1) becomes -inf when i0 > n_past + i1, matching
+// ggml_compute_forward_diag_mask_f32. The op is elementwise, so dst == src
+// (ggml_diag_mask_inf_inplace) works without a separate path.
+static __global__ void diag_mask_inf_kernel(float * __restrict__ dst,
+                                            const float * __restrict__ src,
+                                            const int64_t ne0,
+                                            const int64_t ne1,
+                                            const int     n_past,
+                                            const int64_t total_elements) {
+    const int64_t global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (global_idx >= total_elements) {
+        return;
+    }
+
+    const int64_t i0 = global_idx % ne0;
+    const int64_t i1 = (global_idx / ne0) % ne1;
+
+    dst[global_idx] = i0 > n_past + i1 ? -INFINITY : src[global_idx];
+}
+
+void ggml_cuda_op_diag_mask_inf(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
+    const ggml_tensor * src0 = dst->src[0];
+
+    GGML_ASSERT(src0->type == GGML_TYPE_F32 && dst->type == GGML_TYPE_F32);
+    GGML_ASSERT(ggml_is_contiguous(dst) && ggml_is_contiguous(src0));
+    GGML_ASSERT(ggml_nelements(dst) == ggml_nelements(src0));
+
+    const int n_past = ((const int32_t *) dst->op_params)[0];
+    GGML_ASSERT(n_past >= 0);
+
+    const int64_t n_elems    = ggml_nelements(dst);
+    const int64_t num_blocks = (n_elems + CUDA_DIAG_BLOCK_SIZE - 1) / CUDA_DIAG_BLOCK_SIZE;
+
+    diag_mask_inf_kernel<<<num_blocks, CUDA_DIAG_BLOCK_SIZE, 0, ctx.stream()>>>(
+        (float *) dst->data, (const float *) src0->data, dst->ne[0], dst->ne[1], n_past, n_elems);
+}
+
 void ggml_cuda_op_diag(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
     const ggml_tensor * src0 = dst->src[0];
 

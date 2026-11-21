@@ -11005,31 +11005,19 @@ void ggml_vk_ssm_conv(ggml_backend_vk_context * ctx, vk_context& subctx, const s
     const ggml_tensor * src0 = conv->src[0];
     const ggml_tensor * src1 = conv->src[1];
 
-    // Pick the destination tensor (last node in the fused chain) and the optional bias.
-    // Fusion modes: 0 = ssm_conv, 1 = ssm_conv+silu, 2 = ssm_conv+add(bias)+silu.
-    ggml_tensor * dst = conv;
-    const ggml_tensor * bias = nullptr;
+    // ssm_conv.comp only declares 3 bindings (src0 / src1 / dst) and applies neither bias nor silu,
+    // so the conv is never fused with the following ADD/UNARY nodes.
+    GGML_ASSERT(ctx->num_additional_fused_ops == 0);
 
-    if (ctx->num_additional_fused_ops == 1) {
-        dst = cgraph->nodes[node_idx + 1]; // silu
-    } else if (ctx->num_additional_fused_ops == 2) {
-        ggml_tensor * add = cgraph->nodes[node_idx + 1];
-        bias = (add->src[0] == conv) ? add->src[1] : add->src[0];
-        dst = cgraph->nodes[node_idx + 2]; // silu
-    }
-
-    // The shader always declares 4 bindings; bind src0 as a dummy when bias isn't fused.
-    const ggml_tensor * src2 = bias ? bias : src0;
-
-    ggml_vk_op_f32<vk_op_ssm_conv_push_constants>(ctx, subctx, src0, src1, src2, nullptr, dst, GGML_OP_SSM_CONV, {
+    ggml_vk_op_f32<vk_op_ssm_conv_push_constants>(ctx, subctx, src0, src1, nullptr, nullptr, conv, GGML_OP_SSM_CONV, {
         (uint32_t)src0->nb[1], (uint32_t)src0->nb[2],
         (uint32_t)src1->nb[1],
-        (uint32_t)dst->nb[0], (uint32_t)dst->nb[1], (uint32_t)dst->nb[2],
+        (uint32_t)conv->nb[0], (uint32_t)conv->nb[1], (uint32_t)conv->nb[2],
         (uint32_t)src1->ne[0],
         (uint32_t)src0->ne[0],
         (uint32_t)src0->ne[1],
-        (uint32_t)dst->ne[1],
-        (uint32_t)dst->ne[2],
+        (uint32_t)conv->ne[1],
+        (uint32_t)conv->ne[2],
     });
 }
 
@@ -14462,61 +14450,6 @@ bool ggml_vk_can_fuse(const ggml_backend_vk_context * ctx, const struct ggml_cgr
     return true;
 }
 
-bool ggml_vk_can_fuse_ssm_conv(const ggml_backend_vk_context * ctx, const struct ggml_cgraph * cgraph,
-                                      int node_idx, int num_extra) {
-    const ggml_tensor * conv = cgraph->nodes[node_idx];
-    if (conv->op != GGML_OP_SSM_CONV) {
-        return false;
-    }
-
-    const ggml_tensor * silu = nullptr;
-    const ggml_tensor * bias = nullptr;
-
-    if (num_extra == 1) {
-        if (!ggml_can_fuse(cgraph, node_idx, { GGML_OP_SSM_CONV, GGML_OP_UNARY })) {
-            return false;
-        }
-        silu = cgraph->nodes[node_idx + 1];
-    } else if (num_extra == 2) {
-        if (!ggml_can_fuse(cgraph, node_idx, { GGML_OP_SSM_CONV, GGML_OP_ADD, GGML_OP_UNARY })) {
-            return false;
-        }
-        const ggml_tensor * add = cgraph->nodes[node_idx + 1];
-        silu = cgraph->nodes[node_idx + 2];
-        bias = (add->src[0] == conv) ? add->src[1] : add->src[0];
-
-        if (bias->type != GGML_TYPE_F32 || !ggml_is_contiguous(bias)) {
-            return false;
-        }
-        // bias must be channel-wise (one element per channel of the conv output)
-        if (ggml_nelements(bias) != conv->ne[0] || bias->ne[0] != conv->ne[0]) {
-            return false;
-        }
-        if (add->type != GGML_TYPE_F32) {
-            return false;
-        }
-        // The shader doesn't apply per-tensor offsets, so reject misaligned bias.
-        if (get_misalign_bytes(ctx, bias) != 0) {
-            return false;
-        }
-    } else {
-        return false;
-    }
-
-    if (ggml_get_unary_op(silu) != GGML_UNARY_OP_SILU) {
-        return false;
-    }
-    if (conv->type != GGML_TYPE_F32 || silu->type != GGML_TYPE_F32) {
-        return false;
-    }
-    // The shader writes to the fused dst using its own strides, but the push constants don't
-    // carry a per-tensor offset, so the binding must be naturally aligned.
-    if (get_misalign_bytes(ctx, silu) != 0) {
-        return false;
-    }
-    return true;
-}
-
 bool ggml_vk_can_fuse_topk_moe(ggml_backend_vk_context * ctx, const struct ggml_cgraph * cgraph,
                                       int node_idx, topk_moe_mode mode) {
 
@@ -15298,19 +15231,6 @@ static ggml_status ggml_backend_vk_graph_compute(ggml_backend_t backend, ggml_cg
                     default:                     fusion_string = "SOFTPLUS_MUL"; break;
                 }
                 op_srcs_fused_elementwise[0] = true;
-                op_srcs_fused_elementwise[1] = true;
-            } else if (ggml_vk_can_fuse_ssm_conv(ctx, cgraph, i, 2)) {
-                ctx->num_additional_fused_ops = 2;
-                fusion_string = "SSM_CONV_BIAS_SILU";
-                // ssm_conv reads multiple input tokens per output, so it's not elementwise w.r.t. its srcs.
-                // The downstream add and silu are elementwise on the conv output.
-                op_srcs_fused_elementwise[0] = false;
-                op_srcs_fused_elementwise[1] = true;
-                op_srcs_fused_elementwise[2] = true;
-            } else if (ggml_vk_can_fuse_ssm_conv(ctx, cgraph, i, 1)) {
-                ctx->num_additional_fused_ops = 1;
-                fusion_string = "SSM_CONV_SILU";
-                op_srcs_fused_elementwise[0] = false;
                 op_srcs_fused_elementwise[1] = true;
             } else if (ggml_can_fuse_subgraph(cgraph, i, rope_view_set_rows_pattern, { i + 2 }) &&
                        ggml_check_edges(cgraph, i, rope_view_set_rows_edges) &&
